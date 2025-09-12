@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X, Search, ShoppingBag, User } from 'lucide-react';
+import { Menu, X, Search, ShoppingBag, User, Shield } from 'lucide-react';
 import { navigationConfig } from '../data/mockData';
 import DropdownMenu from './DropdownMenu';
 
@@ -16,9 +16,7 @@ const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
   ];
 
   const handleDropdownItemClick = (item: any, type: string) => {
-    // Navigate to shop page with filter applied
     onNavigate('shop');
-    // You can add filter logic here based on the type and item
     console.log(`Selected ${type}:`, item);
   };
 
@@ -83,6 +81,14 @@ const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
             <Search className="h-5 w-5 text-gray-700 hover:text-black cursor-pointer transition-colors" />
             <ShoppingBag className="h-5 w-5 text-gray-700 hover:text-black cursor-pointer transition-colors" />
             <User className="h-5 w-5 text-gray-700 hover:text-black cursor-pointer transition-colors" />
+            {/* Admin Icon */}
+            <button
+              onClick={() => onNavigate('admin')}
+              className={`p-2 rounded-full hover:bg-gray-100 transition-colors duration-200 ${currentPage === 'admin' ? 'text-black' : 'text-gray-600'}`}
+              title="Admin Panel"
+            >
+              <Shield className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Mobile menu button */}
@@ -144,6 +150,14 @@ const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
                 <Search className="h-5 w-5 text-gray-700" />
                 <ShoppingBag className="h-5 w-5 text-gray-700" />
                 <User className="h-5 w-5 text-gray-700" />
+                {/* Admin Icon (Mobile) */}
+                <button
+                  onClick={() => { onNavigate('admin'); setIsMenuOpen(false); }}
+                  className={`p-2 rounded-full hover:bg-gray-100 transition-colors duration-200 ${currentPage === 'admin' ? 'text-black' : 'text-gray-600'}`}
+                  title="Admin Panel"
+                >
+                  <Shield className="h-5 w-5" />
+                </button>
               </div>
             </div>
           </div>
