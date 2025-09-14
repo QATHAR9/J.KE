@@ -1,14 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Filter, Grid, List } from 'lucide-react';
-import { products, categories } from '../data/mockData';
-import { Product } from '../types';
 import ProductCard from '../components/ProductCard';
+import type { Database } from '../lib/supabase';
+
+type Product = Database['public']['Tables']['products']['Row'];
+type Category = Database['public']['Tables']['categories']['Row'];
 
 interface ShopPageProps {
   onViewProduct: (product: Product) => void;
+  products: Product[];
+  categories: Category[];
 }
 
-const ShopPage: React.FC<ShopPageProps> = ({ onViewProduct }) => {
+const ShopPage: React.FC<ShopPageProps> = ({ onViewProduct, products, categories }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [sortBy, setSortBy] = useState<'name' | 'price-low' | 'price-high'>('name');

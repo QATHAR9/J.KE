@@ -20,8 +20,15 @@ import {
   AlertCircle,
   X
 } from 'lucide-react';
-import { products, banners, brands, navigationConfig, categories } from '../data/mockData';
-import { Product, Banner, Brand, NavigationItem } from '../types';
+import { useSupabaseData } from '../hooks/useSupabaseData';
+import ProductForm from '../components/admin/ProductForm';
+import type { Database } from '../lib/supabase';
+
+type Product = Database['public']['Tables']['products']['Row'];
+type Category = Database['public']['Tables']['categories']['Row'];
+type Brand = Database['public']['Tables']['brands']['Row'];
+type Banner = Database['public']['Tables']['banners']['Row'];
+type Order = Database['public']['Tables']['orders']['Row'];
 
 const AdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'products' | 'banners' | 'navigation' | 'brands' | 'orders' | 'analytics'>('products');
@@ -124,12 +131,19 @@ const AdminPage: React.FC = () => {
     );
   }
 
+  // Fetch data from Supabase
+  const { data: products } = useSupabaseData('products', { realtime: true });
+  const { data: categories } = useSupabaseData('categories', { realtime: true });
+  const { data: brands } = useSupabaseData('brands', { realtime: true });
+  const { data: banners } = useSupabaseData('banners', { realtime: true });
+  const { data: orders } = useSupabaseData('orders', { realtime: true });
+
   const tabs = [
     { id: 'products', name: 'Products', icon: <Package className="h-5 w-5" />, count: products.length },
     { id: 'banners', name: 'Banners', icon: <Image className="h-5 w-5" />, count: banners.length },
-    { id: 'navigation', name: 'Navigation', icon: <Navigation className="h-5 w-5" />, count: navigationConfig.length },
+    { id: 'navigation', name: 'Navigation', icon: <Navigation className="h-5 w-5" />, count: 0 },
     { id: 'brands', name: 'Brands', icon: <Award className="h-5 w-5" />, count: brands.length },
-    { id: 'orders', name: 'Orders', icon: <ShoppingCart className="h-5 w-5" />, count: 24 },
+    { id: 'orders', name: 'Orders', icon: <ShoppingCart className="h-5 w-5" />, count: orders.length },
     { id: 'analytics', name: 'Analytics', icon: <BarChart3 className="h-5 w-5" />, count: null }
   ];
 
@@ -195,12 +209,12 @@ const AdminPage: React.FC = () => {
 
           {/* Main Content */}
           <div className="flex-1">
-            {activeTab === 'products' && <ProductsTab />}
-            {activeTab === 'banners' && <BannersTab />}
+            {activeTab === 'products' && <ProductsTab products={products} categories={categories} />}
+            {activeTab === 'banners' && <BannersTab banners={banners} />}
             {activeTab === 'navigation' && <NavigationTab />}
-            {activeTab === 'brands' && <BrandsTab />}
-            {activeTab === 'orders' && <OrdersTab />}
-            {activeTab === 'analytics' && <AnalyticsTab />}
+            {activeTab === 'brands' && <BrandsTab brands={brands} />}
+            {activeTab === 'orders' && <OrdersTab orders={orders} />}
+            {activeTab === 'analytics' && <AnalyticsTab products={products} orders={orders} categories={categories} />}
           </div>
         </div>
       </div>
@@ -209,9 +223,19 @@ const AdminPage: React.FC = () => {
 };
 
 // Products Tab Component
-const ProductsTab: React.FC = () => {
+const ProductsTab: React.FC<{ products: Product[]; categories: Category[] }> = ({ products, categories }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showForm, setShowForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
+  const { insert, update, remove } = useSupabaseData('products');
+  const categoryNames = categories.map(c => c.name);
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setShowForm(true);
+  };
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -219,7 +243,32 @@ const ProductsTab: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const handleSubmit = async (data: Database['public']['Tables']['products']['Insert']) => {
+    if (editingProduct) {
+      await update(editingProduct.id, data);
+    } else {
+      await insert(data);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this product?')) {
+      await remove(id);
+    }
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingProduct(null);
+  };
+
+  const openAddForm = () => {
+    setEditingProduct(null);
+    setShowForm(true);
+  };
+
   return (
+    <>
     <div className="bg-white rounded-xl shadow-sm">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
@@ -228,7 +277,10 @@ const ProductsTab: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900">Products</h2>
             <p className="text-gray-600 mt-1">Manage your product catalog</p>
           </div>
-          <button className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-2">
+          <button 
+            onClick={openAddForm}
+            className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
+          >
             <Plus className="h-4 w-4" />
             <span>Add Product</span>
           </button>
@@ -254,8 +306,8 @@ const ProductsTab: React.FC = () => {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
           >
             <option value="all">All Categories</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.name}>{cat.name}</option>
+            {categoryNames.map(name => (
+              <option key={name} value={name}>{name}</option>
             ))}
           </select>
         </div>
@@ -318,10 +370,16 @@ const ProductsTab: React.FC = () => {
                     <button className="text-gray-400 hover:text-blue-600 transition-colors">
                       <Eye className="h-4 w-4" />
                     </button>
-                    <button className="text-gray-400 hover:text-yellow-600 transition-colors">
+                    <button 
+                      onClick={() => handleEdit(product)}
+                      className="text-gray-400 hover:text-yellow-600 transition-colors"
+                    >
                       <Edit className="h-4 w-4" />
                     </button>
-                    <button className="text-gray-400 hover:text-red-600 transition-colors">
+                    <button 
+                      onClick={() => handleDelete(product.id)}
+                      className="text-gray-400 hover:text-red-600 transition-colors"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -354,11 +412,21 @@ const ProductsTab: React.FC = () => {
         </div>
       </div>
     </div>
+    
+    {showForm && (
+      <ProductForm
+        product={editingProduct}
+        categories={categoryNames}
+        onSubmit={handleSubmit}
+        onClose={closeForm}
+      />
+    )}
+    </>
   );
 };
 
 // Banners Tab Component
-const BannersTab: React.FC = () => {
+const BannersTab: React.FC<{ banners: Banner[] }> = ({ banners }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm">
       <div className="p-6 border-b border-gray-200">
@@ -431,48 +499,8 @@ const NavigationTab: React.FC = () => {
       </div>
 
       <div className="p-6">
-        <div className="space-y-6">
-          {navigationConfig.map((navItem) => (
-            <div key={navItem.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <h3 className="text-lg font-semibold text-gray-900">{navItem.name}</h3>
-                  <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                    {navItem.type}
-                  </span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    navItem.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {navItem.active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button className="text-gray-400 hover:text-yellow-600 transition-colors">
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button className="text-gray-400 hover:text-red-600 transition-colors">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {navItem.items.map((item) => (
-                  <div key={item.id} className="flex items-center space-x-3 p-2 bg-gray-50 rounded">
-                    {item.image && (
-                      <img src={item.image} alt={item.name} className="h-8 w-8 rounded object-cover" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 truncate">{item.name}</div>
-                      {item.description && (
-                        <div className="text-xs text-gray-600 truncate">{item.description}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="text-center py-12">
+          <p className="text-gray-500">Navigation management coming soon...</p>
         </div>
       </div>
     </div>
@@ -480,7 +508,7 @@ const NavigationTab: React.FC = () => {
 };
 
 // Brands Tab Component
-const BrandsTab: React.FC = () => {
+const BrandsTab: React.FC<{ brands: Brand[] }> = ({ brands }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm">
       <div className="p-6 border-b border-gray-200">
@@ -531,37 +559,12 @@ const BrandsTab: React.FC = () => {
 };
 
 // Orders Tab Component
-const OrdersTab: React.FC = () => {
-  // Mock order data
-  const mockOrders = [
-    {
-      id: 'ORD001',
-      customerName: 'Sarah Johnson',
-      customerPhone: '+254 712 345 678',
-      items: ['Luxury Hair Serum', 'Radiance Face Cream'],
-      total: 5700,
-      status: 'pending',
-      createdAt: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: 'ORD002', 
-      customerName: 'Mary Wanjiku',
-      customerPhone: '+254 723 456 789',
-      items: ['Midnight Oud', 'Beard Growth Oil'],
-      total: 6300,
-      status: 'confirmed',
-      createdAt: '2024-01-15T09:15:00Z'
-    },
-    {
-      id: 'ORD003',
-      customerName: 'Grace Achieng',
-      customerPhone: '+254 734 567 890',
-      items: ['Fresh Citrus Body Spray'],
-      total: 1200,
-      status: 'delivered',
-      createdAt: '2024-01-14T16:45:00Z'
-    }
-  ];
+const OrdersTab: React.FC<{ orders: Order[] }> = ({ orders }) => {
+  const { update } = useSupabaseData('orders');
+
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    await update(orderId, { status: newStatus });
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm">
@@ -572,7 +575,7 @@ const OrdersTab: React.FC = () => {
             <p className="text-gray-600 mt-1">Track and manage customer orders</p>
           </div>
           <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-600">Total: KSh {mockOrders.reduce((sum, order) => sum + order.total, 0).toLocaleString()}</span>
+            <span className="text-sm text-gray-600">Total: KSh {orders.reduce((sum, order) => sum + order.total, 0).toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -591,38 +594,43 @@ const OrdersTab: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {mockOrders.map((order) => (
+            {orders.map((order) => (
               <tr key={order.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">
                   {order.id}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-gray-900">{order.customerName}</div>
-                  <div className="text-sm text-gray-500">{order.customerPhone}</div>
+                  <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
+                  <div className="text-sm text-gray-500">{order.customer_phone}</div>
                 </td>
                 <td className="px-6 py-4">
                   <div className="text-sm text-gray-900">
-                    {order.items.join(', ')}
+                    {Array.isArray(order.items) ? order.items.map((item: any) => item.name || item).join(', ') : 'No items'}
                   </div>
-                  <div className="text-sm text-gray-500">{order.items.length} item{order.items.length > 1 ? 's' : ''}</div>
+                  <div className="text-sm text-gray-500">{Array.isArray(order.items) ? order.items.length : 0} item(s)</div>
                 </td>
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">
                   KSh {order.total.toLocaleString()}
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                    order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {order.status === 'delivered' && <CheckCircle className="h-3 w-3 mr-1" />}
-                    {order.status === 'confirmed' && <Clock className="h-3 w-3 mr-1" />}
-                    {order.status === 'pending' && <AlertCircle className="h-3 w-3 mr-1" />}
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                  </span>
+                  <select
+                    value={order.status}
+                    onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                    className={`text-xs px-2 py-1 rounded border ${
+                      order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                      order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                      order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
-                  {new Date(order.createdAt).toLocaleDateString()}
+                  {new Date(order.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end space-x-2">
@@ -644,19 +652,19 @@ const OrdersTab: React.FC = () => {
       <div className="p-6 border-t border-gray-200 bg-gray-50">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold text-gray-900">{mockOrders.length}</div>
+            <div className="text-2xl font-bold text-gray-900">{orders.length}</div>
             <div className="text-sm text-gray-600">Total Orders</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-yellow-600">{mockOrders.filter(o => o.status === 'pending').length}</div>
+            <div className="text-2xl font-bold text-yellow-600">{orders.filter(o => o.status === 'pending').length}</div>
             <div className="text-sm text-gray-600">Pending</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-blue-600">{mockOrders.filter(o => o.status === 'confirmed').length}</div>
+            <div className="text-2xl font-bold text-blue-600">{orders.filter(o => o.status === 'confirmed').length}</div>
             <div className="text-sm text-gray-600">Confirmed</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-green-600">{mockOrders.filter(o => o.status === 'delivered').length}</div>
+            <div className="text-2xl font-bold text-green-600">{orders.filter(o => o.status === 'delivered').length}</div>
             <div className="text-sm text-gray-600">Delivered</div>
           </div>
         </div>
@@ -666,11 +674,11 @@ const OrdersTab: React.FC = () => {
 };
 
 // Analytics Tab Component
-const AnalyticsTab: React.FC = () => {
+const AnalyticsTab: React.FC<{ products: Product[]; orders: Order[]; categories: Category[] }> = ({ products, orders, categories }) => {
   const analyticsData = {
-    totalRevenue: 145000,
-    totalOrders: 89,
-    averageOrderValue: 1629,
+    totalRevenue: orders.reduce((sum, order) => sum + order.total, 0),
+    totalOrders: orders.length,
+    averageOrderValue: orders.length > 0 ? orders.reduce((sum, order) => sum + order.total, 0) / orders.length : 0,
     topSellingCategory: 'Perfume',
     revenueGrowth: 15.3,
     orderGrowth: 8.7,
@@ -751,8 +759,9 @@ const AnalyticsTab: React.FC = () => {
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Sales by Category</h3>
           <div className="space-y-4">
             {categories.map((category, index) => {
-              const percentage = Math.floor(Math.random() * 40) + 10; // Mock data
-              const amount = Math.floor(Math.random() * 50000) + 10000; // Mock data
+              const categoryProducts = products.filter(p => p.category === category.name);
+              const percentage = products.length > 0 ? (categoryProducts.length / products.length) * 100 : 0;
+              const amount = categoryProducts.reduce((sum, p) => sum + (p.price * (p.stock || 0)), 0);
               return (
                 <div key={category.id}>
                   <div className="flex items-center justify-between mb-2">
@@ -768,7 +777,7 @@ const AnalyticsTab: React.FC = () => {
                         index % 6 === 3 ? 'bg-red-500' :
                         index % 6 === 4 ? 'bg-purple-500' : 'bg-pink-500'
                       }`}
-                      style={{ width: `${percentage}%` }}
+                      style={{ width: `${Math.max(percentage, 5)}%` }}
                     ></div>
                   </div>
                 </div>
@@ -839,9 +848,9 @@ const AnalyticsTab: React.FC = () => {
               </thead>
               <tbody className="space-y-3">
                 {products.filter(p => p.featured).map((product, index) => {
-                  const unitsSold = Math.floor(Math.random() * 50) + 10;
+                  const unitsSold = Math.floor(Math.random() * 50) + 10; // This would come from order data in real implementation
                   const revenue = unitsSold * product.price;
-                  const growth = Math.floor(Math.random() * 30) + 5;
+                  const growth = Math.floor(Math.random() * 30) + 5; // This would be calculated from historical data
                   
                   return (
                     <tr key={product.id} className="border-t border-gray-100">

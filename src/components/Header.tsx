@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { Menu, X, Search, ShoppingBag, User, Shield } from 'lucide-react';
-import { navigationConfig } from '../data/mockData';
 import DropdownMenu from './DropdownMenu';
+import type { Database } from '../lib/supabase';
+
+type Category = Database['public']['Tables']['categories']['Row'];
+type Brand = Database['public']['Tables']['brands']['Row'];
 
 interface HeaderProps {
   currentPage: string;
   onNavigate: (page: string) => void;
+  categories: Category[];
+  brands: Brand[];
 }
 
-const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
+const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate, categories, brands }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navigation = [
@@ -19,6 +24,34 @@ const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
     onNavigate('shop');
     console.log(`Selected ${type}:`, item);
   };
+  
+  // Create navigation config from Supabase data
+  const navigationConfig = [
+    {
+      id: 'categories',
+      name: 'Browse by Category',
+      type: 'category',
+      items: categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        image: cat.image
+      })),
+      active: true
+    },
+    {
+      id: 'brands',
+      name: 'Browse by Brand',
+      type: 'brand',
+      items: brands.filter(brand => brand.active).map(brand => ({
+        id: brand.id,
+        name: brand.name,
+        description: brand.description,
+        image: brand.image
+      })),
+      active: true
+    }
+  ];
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
@@ -122,7 +155,7 @@ const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
               ))}
               
               {/* Mobile Dropdown Items */}
-              {navigationConfig.filter(nav => nav.active).map((navItem) => (
+              {navigationConfig.map((navItem) => (
                 <div key={navItem.id} className="border-t border-gray-100 pt-2">
                   <div className="px-3 py-2 text-sm font-semibold text-gray-900">
                     {navItem.name}

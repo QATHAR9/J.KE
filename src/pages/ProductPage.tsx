@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Heart, Share2, Star, Minus, Plus } from 'lucide-react';
-import { Product } from '../types';
-import { products } from '../data/mockData';
 import WhatsAppButton from '../components/WhatsAppButton';
 import ProductCard from '../components/ProductCard';
+import type { Database } from '../lib/supabase';
+
+type Product = Database['public']['Tables']['products']['Row'];
 
 interface ProductPageProps {
   product: Product;
   onBack: () => void;
   onViewProduct: (product: Product) => void;
+  products: Product[];
 }
 
-const ProductPage: React.FC<ProductPageProps> = ({ product, onBack, onViewProduct }) => {
+const ProductPage: React.FC<ProductPageProps> = ({ product, onBack, onViewProduct, products }) => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
 

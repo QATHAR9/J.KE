@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Star, Instagram } from 'lucide-react';
-import { categories, products } from '../data/mockData';
-import { Product } from '../types';
 import ProductCard from '../components/ProductCard';
 import WhatsAppButton from '../components/WhatsAppButton';
+import type { Database } from '../lib/supabase';
+
+type Product = Database['public']['Tables']['products']['Row'];
+type Category = Database['public']['Tables']['categories']['Row'];
 
 interface HomePageProps {
   onNavigate: (page: string) => void;
   onViewProduct: (product: Product) => void;
+  products: Product[];
+  categories: Category[];
 }
 
-const HomePage: React.FC<HomePageProps> = ({ onNavigate, onViewProduct }) => {
+const HomePage: React.FC<HomePageProps> = ({ onNavigate, onViewProduct, products, categories }) => {
   const featuredProducts = products.filter(p => p.featured);
 
   return (
