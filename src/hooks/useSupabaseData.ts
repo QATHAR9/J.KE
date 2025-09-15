@@ -21,7 +21,6 @@ export function useSupabaseData<T extends keyof Tables>(
 
     const fetchData = async () => {
       try {
-        setLoading(true);
         let query = supabase.from(table).select('*');
 
         // Apply filters
@@ -44,7 +43,8 @@ export function useSupabaseData<T extends keyof Tables>(
         setData(fetchedData || []);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error(`Error fetching ${table}:`, err);
+        setError(err instanceof Error ? err.message : 'Database connection error');
         setData([]);
       } finally {
         setLoading(false);
@@ -64,7 +64,9 @@ export function useSupabaseData<T extends keyof Tables>(
             schema: 'public',
             table: table,
           },
-          () => {
+          (payload) => {
+            console.log(`Real-time update for ${table}:`, payload);
+            // Refetch data on any change
             fetchData();
           }
         )
@@ -79,35 +81,50 @@ export function useSupabaseData<T extends keyof Tables>(
   }, [table, JSON.stringify(options)]);
 
   const insert = async (data: Tables[T]['Insert']) => {
-    const { data: insertedData, error } = await supabase
-      .from(table)
-      .insert(data)
-      .select()
-      .single();
+    try {
+      const { data: insertedData, error } = await supabase
+        .from(table)
+        .insert(data)
+        .select()
+        .single();
 
-    if (error) throw error;
-    return insertedData;
+      if (error) throw error;
+      return insertedData;
+    } catch (error) {
+      console.error(`Error inserting into ${table}:`, error);
+      throw error;
+    }
   };
 
   const update = async (id: string, data: Tables[T]['Update']) => {
-    const { data: updatedData, error } = await supabase
-      .from(table)
-      .update(data)
-      .eq('id', id)
-      .select()
-      .single();
+    try {
+      const { data: updatedData, error } = await supabase
+        .from(table)
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) throw error;
-    return updatedData;
+      if (error) throw error;
+      return updatedData;
+    } catch (error) {
+      console.error(`Error updating ${table}:`, error);
+      throw error;
+    }
   };
 
   const remove = async (id: string) => {
-    const { error } = await supabase
-      .from(table)
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id);
 
-    if (error) throw error;
+      if (error) throw error;
+    } catch (error) {
+      console.error(`Error deleting from ${table}:`, error);
+      throw error;
+    }
   };
 
   return {
@@ -117,9 +134,6 @@ export function useSupabaseData<T extends keyof Tables>(
     insert,
     update,
     remove,
-    refetch: () => {
-      setLoading(true);
-      // Trigger re-fetch by updating the effect dependency
-    }
+    refetch: fetchData
   };
 }

@@ -1,6 +1,8 @@
 import React from 'react';
-import { Product } from '../types';
 import { Eye, Heart } from 'lucide-react';
+import type { Database } from '../lib/supabase';
+
+type Product = Database['public']['Tables']['products']['Row'];
 
 interface ProductCardProps {
   product: Product;
@@ -12,7 +14,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onViewProduct }) => 
     <div className="group bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
       <div className="relative overflow-hidden">
         <img
-          src={product.images[0]}
+          src={product.images[0] || 'https://via.placeholder.com/300x300?text=No+Image'}
           alt={product.name}
           className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
         />
@@ -47,7 +49,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onViewProduct }) => 
         </div>
         
         <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-          {product.description}
+          {product.description || 'No description available'}
         </p>
         
         <div className="flex justify-between items-center">
