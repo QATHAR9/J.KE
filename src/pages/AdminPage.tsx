@@ -19,10 +19,14 @@ import {
   DollarSign,
   AlertCircle,
   X,
-  Loader
+  Loader,
+  LogOut
 } from 'lucide-react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import ProductForm from '../components/admin/ProductForm';
+import BannerForm from '../components/admin/BannerForm';
+import BrandForm from '../components/admin/BrandForm';
+import { signOut, type User } from '../lib/auth';
 import type { Database } from '../lib/supabase';
 
 type Product = Database['public']['Tables']['products']['Row'];
@@ -31,11 +35,13 @@ type Brand = Database['public']['Tables']['brands']['Row'];
 type Banner = Database['public']['Tables']['banners']['Row'];
 type Order = Database['public']['Tables']['orders']['Row'];
 
-const AdminPage: React.FC = () => {
+interface AdminPageProps {
+  user: User;
+  onNavigate: (page: string) => void;
+}
+
+const AdminPage: React.FC<AdminPageProps> = ({ user, onNavigate }) => {
   const [activeTab, setActiveTab] = useState<'products' | 'banners' | 'navigation' | 'brands' | 'orders' | 'analytics'>('products');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
 
   // Fetch data from Supabase
@@ -47,108 +53,15 @@ const AdminPage: React.FC = () => {
 
   // Check if all data is loaded
   useEffect(() => {
-    if (isAuthenticated) {
-      const allLoaded = !productsLoading && !categoriesLoading && !brandsLoading && !bannersLoading && !ordersLoading;
-      setDataLoading(!allLoaded);
-    }
-  }, [isAuthenticated, productsLoading, categoriesLoading, brandsLoading, bannersLoading, ordersLoading]);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (loginForm.username === 'admin' && loginForm.password === 'jowhara2024') {
-      setIsAuthenticated(true);
-    } else {
-      alert('Invalid credentials');
-    }
-    setLoading(false);
-  };
+    const allLoaded = !productsLoading && !categoriesLoading && !brandsLoading && !bannersLoading && !ordersLoading;
+    setDataLoading(!allLoaded);
+  }, [productsLoading, categoriesLoading, brandsLoading, bannersLoading, ordersLoading]);
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setLoginForm({ username: '', password: '' });
-    setActiveTab('products');
+    signOut().then(() => {
+      onNavigate('home');
+    }).catch(console.error);
   };
-
-  // Show login screen if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-          {/* Header */}
-          <div className="bg-black text-white p-8 text-center">
-            <div className="mb-4">
-              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full mx-auto flex items-center justify-center">
-                <Settings className="h-8 w-8" />
-              </div>
-            </div>
-            <h1 className="text-2xl font-serif font-bold">Admin Login</h1>
-            <p className="text-gray-300 mt-2">Jowhara Collection Admin Panel</p>
-          </div>
-          
-          {/* Form */}
-          <form onSubmit={handleLogin} className="p-8 space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Username
-              </label>
-              <input
-                type="text"
-                value={loginForm.username}
-                onChange={(e) => setLoginForm(prev => ({ ...prev, username: e.target.value }))}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
-                placeholder="Enter username"
-                required
-                disabled={loading}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Password
-              </label>
-              <input
-                type="password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
-                placeholder="Enter password"
-                required
-                disabled={loading}
-              />
-            </div>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-black text-white py-3 px-4 rounded-lg font-semibold hover:bg-gray-800 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
-          
-          <div className="px-8 pb-8">
-            <div className="bg-gray-50 rounded-lg p-4 text-center text-sm text-gray-600">
-              <strong>Demo Credentials:</strong><br />
-              Username: <code>admin</code><br />
-              Password: <code>jowhara2024</code>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Show loading screen while data is being fetched
   if (dataLoading) {
@@ -212,12 +125,16 @@ const AdminPage: React.FC = () => {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
+                Welcome, {user.email}
+              </div>
+              <div className="text-sm text-gray-600">
                 {products.length} Products • {orders.length} Orders
               </div>
               <button
                 onClick={handleLogout}
                 className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors px-3 py-2 rounded-lg hover:bg-gray-100"
               >
+                <LogOut className="h-4 w-4" />
                 <span className="text-sm">Sign Out</span>
               </button>
             </div>
@@ -506,7 +423,45 @@ const ProductsTab: React.FC<{ products: Product[]; categories: Category[] }> = (
 // Banners Tab Component
 const BannersTab: React.FC<{ banners: Banner[] }> = ({ banners }) => {
   const { insert, update, remove } = useSupabaseData('banners');
+  const { data: categories } = useSupabaseData('categories');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+
+  const categoryNames = categories.map(c => c.name);
+
+  const handleEdit = (banner: Banner) => {
+    setEditingBanner(banner);
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (data: Database['public']['Tables']['banners']['Insert']) => {
+    try {
+      setActionLoading('saving');
+      if (editingBanner) {
+        await update(editingBanner.id, data);
+      } else {
+        await insert(data);
+      }
+      setShowForm(false);
+      setEditingBanner(null);
+    } catch (error) {
+      console.error('Error saving banner:', error);
+      alert('Error saving banner. Please try again.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingBanner(null);
+  };
+
+  const openAddForm = () => {
+    setEditingBanner(null);
+    setShowForm(true);
+  };
 
   const toggleBannerStatus = async (banner: Banner) => {
     try {
@@ -535,71 +490,89 @@ const BannersTab: React.FC<{ banners: Banner[] }> = ({ banners }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Banner Management</h2>
-            <p className="text-gray-600 mt-1">Control homepage banners and promotions</p>
+    <>
+      <div className="bg-white rounded-xl shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Banner Management</h2>
+              <p className="text-gray-600 mt-1">Control homepage banners and promotions</p>
+            </div>
+            <button 
+              onClick={openAddForm}
+              className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Banner</span>
+            </button>
           </div>
-          <button className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>Add Banner</span>
-          </button>
         </div>
-      </div>
 
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {banners.map((banner) => (
-            <div key={banner.id} className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="aspect-video relative">
-                <img src={banner.image} alt={banner.title} className="w-full h-full object-cover" />
-                <div className="absolute top-2 right-2">
-                  <button
-                    onClick={() => toggleBannerStatus(banner)}
-                    disabled={actionLoading === banner.id}
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                      banner.active ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'
-                    }`}
-                  >
-                    {actionLoading === banner.id ? (
-                      <Loader className="h-3 w-3 animate-spin mr-1" />
-                    ) : null}
-                    {banner.active ? 'Active' : 'Inactive'}
-                  </button>
-                </div>
-              </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-1">{banner.title}</h3>
-                <p className="text-sm text-gray-600 mb-3">{banner.subtitle}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                    {banner.category || 'General'}
-                  </span>
-                  <div className="flex items-center space-x-2">
-                    <button className="text-gray-400 hover:text-yellow-600 transition-colors">
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button 
-                      onClick={() => deleteBanner(banner.id, banner.title)}
-                      className="text-gray-400 hover:text-red-600 transition-colors"
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {banners.map((banner) => (
+              <div key={banner.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="aspect-video relative">
+                  <img src={banner.image} alt={banner.title} className="w-full h-full object-cover" />
+                  <div className="absolute top-2 right-2">
+                    <button
+                      onClick={() => toggleBannerStatus(banner)}
                       disabled={actionLoading === banner.id}
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                        banner.active ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'
+                      }`}
                     >
                       {actionLoading === banner.id ? (
-                        <Loader className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
+                        <Loader className="h-3 w-3 animate-spin mr-1" />
+                      ) : null}
+                      {banner.active ? 'Active' : 'Inactive'}
                     </button>
                   </div>
                 </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-gray-900 mb-1">{banner.title}</h3>
+                  <p className="text-sm text-gray-600 mb-3">{banner.subtitle}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                      {banner.category || 'General'}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={() => handleEdit(banner)}
+                        className="text-gray-400 hover:text-yellow-600 transition-colors"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={() => deleteBanner(banner.id, banner.title)}
+                        className="text-gray-400 hover:text-red-600 transition-colors"
+                        disabled={actionLoading === banner.id}
+                      >
+                        {actionLoading === banner.id ? (
+                          <Loader className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+      
+      {showForm && (
+        <BannerForm
+          banner={editingBanner}
+          categories={categoryNames}
+          onSubmit={handleSubmit}
+          onClose={closeForm}
+          loading={actionLoading === 'saving'}
+        />
+      )}
+    </>
   );
 };
 
@@ -633,7 +606,43 @@ const NavigationTab: React.FC = () => {
 // Brands Tab Component
 const BrandsTab: React.FC<{ brands: Brand[] }> = ({ brands }) => {
   const { update, remove } = useSupabaseData('brands');
+  const { insert } = useSupabaseData('brands');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+
+  const handleEdit = (brand: Brand) => {
+    setEditingBrand(brand);
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (data: Database['public']['Tables']['brands']['Insert']) => {
+    try {
+      setActionLoading('saving');
+      if (editingBrand) {
+        await update(editingBrand.id, data);
+      } else {
+        await insert(data);
+      }
+      setShowForm(false);
+      setEditingBrand(null);
+    } catch (error) {
+      console.error('Error saving brand:', error);
+      alert('Error saving brand. Please try again.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingBrand(null);
+  };
+
+  const openAddForm = () => {
+    setEditingBrand(null);
+    setShowForm(true);
+  };
 
   const toggleBrandStatus = async (brand: Brand) => {
     try {
@@ -662,66 +671,83 @@ const BrandsTab: React.FC<{ brands: Brand[] }> = ({ brands }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Brand Management</h2>
-            <p className="text-gray-600 mt-1">Manage brand listings and information</p>
-          </div>
-          <button className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>Add Brand</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {brands.map((brand) => (
-            <div key={brand.id} className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="aspect-square relative">
-                <img src={brand.image || 'https://via.placeholder.com/200'} alt={brand.name} className="w-full h-full object-cover" />
-                <div className="absolute top-2 right-2">
-                  <button
-                    onClick={() => toggleBrandStatus(brand)}
-                    disabled={actionLoading === brand.id}
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                      brand.active ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'
-                    }`}
-                  >
-                    {actionLoading === brand.id ? (
-                      <Loader className="h-3 w-3 animate-spin mr-1" />
-                    ) : null}
-                    {brand.active ? 'Active' : 'Inactive'}
-                  </button>
-                </div>
-              </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-1">{brand.name}</h3>
-                <p className="text-sm text-gray-600 mb-3">{brand.description}</p>
-                <div className="flex items-center justify-end space-x-2">
-                  <button className="text-gray-400 hover:text-yellow-600 transition-colors">
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => deleteBrand(brand.id, brand.name)}
-                    className="text-gray-400 hover:text-red-600 transition-colors"
-                    disabled={actionLoading === brand.id}
-                  >
-                    {actionLoading === brand.id ? (
-                      <Loader className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
+    <>
+      <div className="bg-white rounded-xl shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Brand Management</h2>
+              <p className="text-gray-600 mt-1">Manage brand listings and information</p>
             </div>
-          ))}
+            <button 
+              onClick={openAddForm}
+              className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Brand</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {brands.map((brand) => (
+              <div key={brand.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="aspect-square relative">
+                  <img src={brand.image || 'https://via.placeholder.com/200'} alt={brand.name} className="w-full h-full object-cover" />
+                  <div className="absolute top-2 right-2">
+                    <button
+                      onClick={() => toggleBrandStatus(brand)}
+                      disabled={actionLoading === brand.id}
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                        brand.active ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'
+                      }`}
+                    >
+                      {actionLoading === brand.id ? (
+                        <Loader className="h-3 w-3 animate-spin mr-1" />
+                      ) : null}
+                      {brand.active ? 'Active' : 'Inactive'}
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-gray-900 mb-1">{brand.name}</h3>
+                  <p className="text-sm text-gray-600 mb-3">{brand.description}</p>
+                  <div className="flex items-center justify-end space-x-2">
+                    <button 
+                      onClick={() => handleEdit(brand)}
+                      className="text-gray-400 hover:text-yellow-600 transition-colors"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => deleteBrand(brand.id, brand.name)}
+                      className="text-gray-400 hover:text-red-600 transition-colors"
+                      disabled={actionLoading === brand.id}
+                    >
+                      {actionLoading === brand.id ? (
+                        <Loader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+      
+      {showForm && (
+        <BrandForm
+          brand={editingBrand}
+          onSubmit={handleSubmit}
+          onClose={closeForm}
+          loading={actionLoading === 'saving'}
+        />
+      )}
+    </>
   );
 };
 
