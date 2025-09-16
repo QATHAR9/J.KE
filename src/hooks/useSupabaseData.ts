@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 
@@ -16,40 +16,40 @@ export function useSupabaseData<T extends keyof Tables>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchData = useCallback(async () => {
+    try {
+      let query = supabase.from(table).select('*');
+
+      // Apply filters
+      if (options?.filter) {
+        Object.entries(options.filter).forEach(([key, value]) => {
+          query = query.eq(key, value);
+        });
+      }
+
+      // Apply ordering
+      if (options?.orderBy) {
+        query = query.order(options.orderBy.column, { 
+          ascending: options.orderBy.ascending ?? true 
+        });
+      }
+
+      const { data: fetchedData, error: fetchError } = await query;
+
+      if (fetchError) throw fetchError;
+      setData(fetchedData || []);
+      setError(null);
+    } catch (err) {
+      console.error(`Error fetching ${table}:`, err);
+      setError(err instanceof Error ? err.message : 'Database connection error');
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [table, JSON.stringify(options)]);
+
   useEffect(() => {
     let subscription: any;
-
-    const fetchData = async () => {
-      try {
-        let query = supabase.from(table).select('*');
-
-        // Apply filters
-        if (options?.filter) {
-          Object.entries(options.filter).forEach(([key, value]) => {
-            query = query.eq(key, value);
-          });
-        }
-
-        // Apply ordering
-        if (options?.orderBy) {
-          query = query.order(options.orderBy.column, { 
-            ascending: options.orderBy.ascending ?? true 
-          });
-        }
-
-        const { data: fetchedData, error: fetchError } = await query;
-
-        if (fetchError) throw fetchError;
-        setData(fetchedData || []);
-        setError(null);
-      } catch (err) {
-        console.error(`Error fetching ${table}:`, err);
-        setError(err instanceof Error ? err.message : 'Database connection error');
-        setData([]);
-      } finally {
-        setLoading(false);
-      }
-    };
 
     fetchData();
 
@@ -78,7 +78,7 @@ export function useSupabaseData<T extends keyof Tables>(
         supabase.removeChannel(subscription);
       }
     };
-  }, [table, JSON.stringify(options)]);
+  }, [fetchData, table, options?.realtime]);
 
   const insert = async (data: Tables[T]['Insert']) => {
     try {
